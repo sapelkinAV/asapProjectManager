@@ -28,7 +28,15 @@ func LoadConfig() (*Config, error) {
 
 	}
 
-	filePath := filepath.Join(home, ".asap_projects.toml")
+	configDir := os.Getenv("XDG_CONFIG_HOME")
+	if configDir == "" {
+		configDir = filepath.Join(home, ".config")
+	}
+	configPath := filepath.Join(configDir, "asap-project-manager")
+	if err := os.MkdirAll(configPath, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create config directory: %w", err)
+	}
+	filePath := filepath.Join(configPath, "projects.toml")
 
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 

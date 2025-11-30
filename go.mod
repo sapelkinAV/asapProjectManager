@@ -2,7 +2,10 @@ module sapelkin.av/asap_project_manager
 
 go 1.25.4
 
-require github.com/charmbracelet/bubbletea v1.3.10
+require (
+	github.com/BurntSushi/toml v1.5.0
+	github.com/charmbracelet/bubbletea v1.3.10
+)
 
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect

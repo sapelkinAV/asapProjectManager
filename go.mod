@@ -1,4 +1,4 @@
-module asap.project/m
+module sapelkin.av/asap_project_manager
 
 go 1.25.4
 

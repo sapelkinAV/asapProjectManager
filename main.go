@@ -109,19 +109,27 @@ func initialAddModel() addProjectModel {
 		languages = append(languages, "other")
 	}
 
-	return addProjectModel{
+	selectedLang := len(languages) - 1 // Default to "Other"
+
+	m := addProjectModel{
 		inputs:       inputs,
 		cursor:       0,
 		languages:    languages,
-		selectedLang: len(languages) - 1, // Default to "Other"
+		selectedLang: selectedLang,
 		customLang:   customLangInput,
 		editMode:     false,
 	}
 
+	// Auto-focus custom language if "other" is selected
+	if m.selectedLang == len(m.languages)-1 {
+		m.customLang.Focus()
+	}
+
+	return m
 }
 
 func (m addProjectModel) Init() tea.Cmd {
-	return nil
+	return m.customLang.Focus()
 }
 
 func (m addProjectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -135,7 +143,7 @@ func (m addProjectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return m, tea.Quit
 
-		case "e":
+		case "ctrl+e":
 			m.editMode = !m.editMode
 			if !m.editMode {
 				m.cursor = 0 // reset to language
@@ -268,7 +276,7 @@ func (m addProjectModel) View() string {
 	}
 
 	if !m.editMode {
-		s += "\nPress 'e' to edit name/path, "
+		s += "\nPress 'Ctrl+E' to edit name/path, "
 	}
 	s += "Enter to submit, Esc to quit"
 	return s

@@ -112,20 +112,44 @@ func SaveConfig(config *Config) error {
 
 }
 
-func GuessLanguage(path string) string {
+func GuessLanguage(path string) []string {
+	var languages []string
+
 	checks := map[string]string{
 		"go.mod":           "go",
 		"Cargo.toml":       "rust",
 		"package.json":     "javascript",
 		"requirements.txt": "python",
 		"pom.xml":          "java",
-		"build.gradle":     "kotlin",
+		"build.gradle":     "java", // Gradle can be used for Java
 		"Makefile":         "c",
 	}
+
 	for file, lang := range checks {
 		if _, err := os.Stat(filepath.Join(path, file)); err == nil {
-			return lang
+			// Avoid duplicates
+			found := false
+			for _, l := range languages {
+				if l == lang {
+					found = true
+					break
+				}
+			}
+			if !found {
+				languages = append(languages, lang)
+			}
 		}
 	}
-	return ""
+
+	// Check for Lua files
+	if entries, err := os.ReadDir(path); err == nil {
+		for _, entry := range entries {
+			if !entry.IsDir() && filepath.Ext(entry.Name()) == ".lua" {
+				languages = append(languages, "lua")
+				break // Only add once
+			}
+		}
+	}
+
+	return languages
 }

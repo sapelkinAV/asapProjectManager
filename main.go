@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,8 +11,56 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"sapelkin.av/asap_project_manager/project"
 )
+
+//go:embed sh/java_project_structure_detector.sh
+var javaStructureScript string
+
+var titleCaser = cases.Title(language.English)
+
+func runJavaStructureDetector(projectPath string) error {
+	// Debug: Check if embedded script is available
+	if javaStructureScript == "" {
+		return fmt.Errorf("embedded script is empty - embed failed")
+	}
+	fmt.Printf("Debug: Embedded script length: %d bytes\n", len(javaStructureScript))
+
+	// Create a temporary script file
+	tmpScript, err := os.CreateTemp("", "java-structure-detector-*.sh")
+	if err != nil {
+		return fmt.Errorf("failed to create temp script: %w", err)
+	}
+	defer func() {
+		_ = os.Remove(tmpScript.Name())
+	}()
+
+	// Write the embedded script to the temp file
+	if _, err := tmpScript.WriteString(javaStructureScript); err != nil {
+		_ = tmpScript.Close()
+		return fmt.Errorf("failed to write script: %w", err)
+	}
+	if err := tmpScript.Close(); err != nil {
+		return fmt.Errorf("failed to close script file: %w", err)
+	}
+
+	// Make the script executable
+	if err := os.Chmod(tmpScript.Name(), 0755); err != nil {
+		return fmt.Errorf("failed to make script executable: %w", err)
+	}
+
+	fmt.Printf("Debug: Running script at: %s in directory: %s\n", tmpScript.Name(), projectPath)
+
+	// Run the script in the project directory
+	cmd := exec.Command("bash", tmpScript.Name())
+	cmd.Dir = projectPath
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run()
+}
 
 type projectItem struct {
 	project project.Project
@@ -215,15 +264,16 @@ func (m editProjectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.inputs[i].Blur()
 				}
 			}
-			if m.cursor == 2 {
+			switch m.cursor {
+			case 2:
 				// Language selection, blur text inputs
 				for i := range m.inputs {
 					m.inputs[i].Blur()
 				}
 				m.customLang.Blur()
-			} else if m.cursor == 3 {
+			case 3:
 				m.customLang.Focus()
-			} else {
+			default:
 				m.customLang.Blur()
 			}
 
@@ -292,9 +342,9 @@ func (m editProjectModel) View() string {
 			if m.cursor == 3 {
 				customView += " <--"
 			}
-			s += fmt.Sprintf("%s %s: %s\n", cursor, strings.Title(lang), customView)
+			s += fmt.Sprintf("%s %s: %s\n", cursor, titleCaser.String(lang), customView)
 		} else {
-			s += fmt.Sprintf("%s %s\n", cursor, strings.Title(lang))
+			s += fmt.Sprintf("%s %s\n", cursor, titleCaser.String(lang))
 		}
 	}
 
@@ -499,9 +549,9 @@ func (m addProjectModel) View() string {
 			}
 		}
 		if lang == "other" {
-			s += fmt.Sprintf("%s %s: %s\n", cursor, strings.Title(lang), m.customLang.View())
+			s += fmt.Sprintf("%s %s: %s\n", cursor, titleCaser.String(lang), m.customLang.View())
 		} else {
-			s += fmt.Sprintf("%s %s\n", cursor, strings.Title(lang))
+			s += fmt.Sprintf("%s %s\n", cursor, titleCaser.String(lang))
 		}
 	}
 
@@ -518,14 +568,19 @@ func openInNeovim(proj project.Project) (project.Project, error) {
 	if err != nil {
 		return proj, err
 	}
-	defer os.Remove(tmpFile.Name())
+	defer func() {
+		_ = os.Remove(tmpFile.Name())
+	}()
 
 	// Write project data in a simple format
 	content := fmt.Sprintf("name: %s\npath: %s\nlanguage: %s\n", proj.Name, proj.Path, proj.Language)
 	if _, err := tmpFile.WriteString(content); err != nil {
+		_ = tmpFile.Close()
 		return proj, err
 	}
-	tmpFile.Close()
+	if err := tmpFile.Close(); err != nil {
+		return proj, err
+	}
 
 	// Open in neovim
 	cmd := exec.Command("nvim", tmpFile.Name())
@@ -649,6 +704,16 @@ func main() {
 			}
 
 			fmt.Println("Project added successfully!")
+
+			// Launch Java project structure detector if it's a Java project
+			if language == "java" {
+				fmt.Println("Detecting Java project structure...")
+				if err := runJavaStructureDetector(path); err != nil {
+					fmt.Printf("Warning: Failed to run Java project structure detector: %v\n", err)
+				} else {
+					fmt.Println("Java project structure detected and saved.")
+				}
+			}
 
 		} else if editModel, ok := m.(editProjectModel); ok && editModel.submitted {
 			// Load config
@@ -781,6 +846,16 @@ func main() {
 		}
 
 		fmt.Println("Project added successfully!")
+
+		// Launch Java project structure detector if it's a Java project
+		if language == "java" {
+			fmt.Println("Detecting Java project structure...")
+			if err := runJavaStructureDetector(path); err != nil {
+				fmt.Printf("Warning: Failed to run Java project structure detector: %v\n", err)
+			} else {
+				fmt.Println("Java project structure detected and saved.")
+			}
+		}
 
 	}
 

@@ -30,5 +30,5 @@ deps:
 
 # Install to ./local/bin
 install: build
-	mkdir -p ./local/bin
-	cp asapm ./local/bin/
+	mkdir -p ~/.local/bin
+	cp asapm ~/.local/bin/
